@@ -10,29 +10,59 @@
 
 </head>
 <body>
+    
+{% set lang = session.get('lang', 'hu') %}
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
 
         <a class="navbar-brand" href="{{ url_for('index') }}">MovieApp</a>
 
-        <ul class="navbar-nav ms-auto">
+        <div class="d-flex ms-auto">
 
-            {% if current_user.is_authenticated %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('logout') }}">Kijelentkezés</a>
-                </li>
-            {% else %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('login') }}">Bejelentkezés</a>
-                </li>
-            {% endif %}
+            <!-- Login / Logout -->
+            <ul class="navbar-nav me-3">
+                {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">
+                            {% if lang == 'hu' %}Kijelentkezés{% else %}Logout{% endif %}
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('login') }}">
+                            {% if lang == 'hu' %}Bejelentkezés{% else %}Login{% endif %}
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
 
-        </ul>
+            <!-- Nyelvválasztó -->
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link {% if lang == 'hu' %}active{% endif %}"
+                       href="{{ url_for('set_language', lang='hu') }}">HU</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if lang == 'en' %}active{% endif %}"
+                       href="{{ url_for('set_language', lang='en') }}">EN</a>
+                </li>
+            </ul>
+
+        </div>
+
     </div>
 </nav>
 
+<p style="color:yellow;">LANG DEBUG: {{ lang }}</p>
+
 <div class="container mt-4">
+
+    <!-- DEBUG: jelenlegi nyelv kijelzése, ha szeretnéd látni -->
+    <small class="text-muted">
+        Aktuális nyelv: {{ lang }}
+    </small>
+    <hr>
 
     {% with messages = get_flashed_messages(with_categories=True) %}
         {% if messages %}

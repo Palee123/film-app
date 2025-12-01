@@ -2,7 +2,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import render_template, redirect, url_for, request, flash
+from flask import render_template, redirect, url_for, request, flash, session
 from flask_login import login_user, logout_user, login_required, current_user
 import os
 import requests
@@ -21,8 +21,21 @@ tmdb_key_path = os.path.join(app.root_path, "tmdb_key.txt")
 with open(tmdb_key_path, "r") as f:
     TMDB_API_KEY = f.read().strip()
 
+# Globális lang változó elérhető a sablonokban
+@app.context_processor
+def inject_lang():
+    return {"lang": session.get("lang", "hu")}
+
+def get_tmdb_language():
+    lang = session.get("lang", "hu")  # 'hu' az alap
+    if lang == "en":
+        return "en-US"
+    return "hu-HU"
+
+
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
+
 
 # SQLite adatbázis
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
@@ -83,12 +96,12 @@ def get_popular_movies():
     url = f"{TMDB_BASE_URL}/movie/popular"
     params = {
         "api_key": TMDB_API_KEY,
-        "language": "hu-HU",
+        "language": get_tmdb_language(),
         "page": 1
     }
     response = requests.get(url, params=params).json()
     movies = response.get("results", [])
-    print("POPULAR MOVIES COUNT:", len(movies))  # debug
+    print("POPULAR MOVIES COUNT:", len(movies))
     return movies
 
 
@@ -96,6 +109,13 @@ def get_popular_movies():
 def index():
     movies = get_popular_movies()
     return render_template("index.html", movies=movies,image_base=IMAGE_BASE_URL)
+
+@app.route("/set_language/<lang>")
+def set_language(lang):
+    if lang not in ["hu", "en"]:
+        lang = "hu"
+    session["lang"] = lang
+    return redirect(request.referrer or url_for("index"))
 
 
 # REGISZTRÁCIÓ
@@ -174,9 +194,9 @@ def search_results():
     genre_id = request.args.get("genre")
 
     params = {
-        "api_key": TMDB_API_KEY,
-        "language": "hu-HU",
-        "query": query,
+    "api_key": TMDB_API_KEY,
+    "language": get_tmdb_language(),
+    "query": query,
     }
 
     url = f"{TMDB_BASE_URL}/search/movie"
@@ -198,8 +218,9 @@ def search_results():
 def movie_details(movie_id):
     # Film adatok lekérése TMDb API-ból
     url = f"{TMDB_BASE_URL}/movie/{movie_id}"
-    params = {"api_key": TMDB_API_KEY, "language": "hu-HU"}
+    params = {"api_key": TMDB_API_KEY, "language": get_tmdb_language()}
     movie = requests.get(url, params=params).json()
+
 
     # Kép elérési út
     poster = IMAGE_BASE_URL + movie["poster_path"] if movie.get("poster_path") else None
@@ -270,9 +291,11 @@ def add_favorite(movie_id):
 
 # TMDB - műfajlista lekérése
 def get_genres():
-    url = f"{TMDB_BASE_URL}/genre/movie/list?api_key={TMDB_API_KEY}&language=hu-HU"
+    lang_code = get_tmdb_language()
+    url = f"{TMDB_BASE_URL}/genre/movie/list?api_key={TMDB_API_KEY}&language={lang_code}"
     response = requests.get(url).json()
     return response.get("genres", [])
+
 
 # ADATBÁZIS LÉTREHOZÁS
 # Ez akkor fut le, amikor indul a program

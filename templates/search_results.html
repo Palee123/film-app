@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>Keresési eredmények</h2>
+<h2>
+    {% if lang == 'hu' %}Keresési eredmények{% else %}Search results{% endif %}
+</h2>
 
 {% if results %}
 
@@ -14,15 +16,17 @@
             {% if movie.poster_path %}
                 <img src="{{ image_base }}{{ movie.poster_path }}" class="card-img-top">
             {% else %}
-                <img src="https://via.placeholder.com/500x750?text=Nincs+kép" class="card-img-top">
+                <img src="https://via.placeholder.com/500x750?text={% if lang=='hu' %}Nincs+kép{% else %}No+image{% endif %}" class="card-img-top">
             {% endif %}
 
             <div class="card-body">
                 <h5 class="card-title">{{ movie.title }}</h5>
                 <p>{{ movie.release_date }}</p>
 
-                <a href="#" class="btn btn-primary">Részletek</a>
-                <!-- később: url_for('movie_details', id=movie.id) -->
+                <a href="{{ url_for('movie_details', movie_id=movie.id) }}"
+                   class="btn btn-primary">
+                    {% if lang == 'hu' %}Részletek{% else %}Details{% endif %}
+                </a>
             </div>
 
         </div>
@@ -32,7 +36,9 @@
 </div>
 
 {% else %}
-    <p>Nincs találat.</p>
+    <p>
+        {% if lang == 'hu' %}Nincs találat.{% else %}No results.{% endif %}
+    </p>
 {% endif %}
 
 {% endblock %}
