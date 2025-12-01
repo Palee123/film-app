@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Filmek keresése</h2>
+
+<form method="GET" action="{{ url_for('search_results') }}">
+
+    <div class="mb-3">
+        <label>Film címe:</label>
+        <input type="text" name="query" class="form-control" placeholder="Írj be egy filmcímet...">
+    </div>
+
+    <div class="mb-3">
+        <label>Műfaj:</label>
+        <select name="genre" class="form-select">
+            <option value="0">-- Minden műfaj --</option>
+
+            {% for genre in genres %}
+                <option value="{{ genre.id }}">{{ genre.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <button class="btn btn-primary">Keresés</button>
+
+</form>
+
+{% endblock %}

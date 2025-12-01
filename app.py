@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required, current_user
 import os
+import requests
 
 # APP ALAP BEÁLLÍTÁS
 
@@ -14,6 +15,14 @@ app = Flask(__name__, instance_relative_config=True)
 secret_path = os.path.join(app.instance_path, "secret_key.txt")
 with open(secret_path, "r") as f:
     app.config["SECRET_KEY"] = f.read().strip()
+
+# TMDb API kulcs betöltése
+tmdb_key_path = os.path.join(app.root_path, "tmdb_key.txt")
+with open(tmdb_key_path, "r") as f:
+    TMDB_API_KEY = f.read().strip()
+
+TMDB_BASE_URL = "https://api.themoviedb.org/3"
+IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 
 # SQLite adatbázis
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
@@ -53,7 +62,7 @@ def load_user(user_id):
 
 @app.route("/")
 def index():
-    return render_template("base.html")
+    return render_template("index.html")
 
 # REGISZTRÁCIÓ
 @app.route("/register", methods=["GET", "POST"])
@@ -115,10 +124,52 @@ def logout():
     flash("Sikeresen kijelentkeztél!", "info")
     return redirect(url_for("login"))
 
+# KERESŐ OLDAL
+
+@app.route("/search")
+def search():
+    genres = get_genres()
+    return render_template("search.html", genres=genres)
+
+# KERESŐ OLDAL - EREDMÉNYEK
+
+@app.route("/search/results")
+def search_results():
+
+    query = request.args.get("query")
+    genre_id = request.args.get("genre")
+
+    params = {
+        "api_key": TMDB_API_KEY,
+        "language": "hu-HU",
+        "query": query,
+    }
+
+    url = f"{TMDB_BASE_URL}/search/movie"
+    response = requests.get(url, params=params).json()
+    results = response.get("results", [])
+
+    # Ha műfaj is ki van választva → szűrés
+    if genre_id and genre_id != "0":
+        genre_id = int(genre_id)
+        results = [movie for movie in results if genre_id in movie.get("genre_ids", [])]
+
+    return render_template("search_results.html",
+                           results=results,
+                           image_base=IMAGE_BASE_URL)
+
+
+# TMDB - műfajlista lekérése
+def get_genres():
+    url = f"{TMDB_BASE_URL}/genre/movie/list?api_key={TMDB_API_KEY}&language=hu-HU"
+    response = requests.get(url).json()
+    return response.get("genres", [])
+
 # ADATBÁZIS LÉTREHOZÁS
 # Ez akkor fut le, amikor indul a program
 with app.app_context():
     db.create_all()
+
 
 # APP FUTTATÁSA
 
