@@ -4,6 +4,8 @@ from flask_login import LoginManager, UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import render_template, redirect, url_for, request, flash, session
 from flask_login import login_user, logout_user, login_required, current_user
+from recommender import recommend_for_user
+
 import os
 import requests
 
@@ -266,8 +268,7 @@ def favorites():
         movie = requests.get(url, params=params).json()
         if movie and "id" in movie:
             movies.append(movie)
-            
-    print("MOVIES DEBUG:", movies)
+
 
     return render_template("favorites.html",
                            movies=movies,
@@ -347,6 +348,19 @@ def add_favorite(movie_id):
         flash("Ez a film már a kedvencek között van!", "info")
 
     return redirect(url_for("movie_details", movie_id=movie_id))
+
+@app.route("/recommendations")
+@login_required
+def recommendations():
+    favs = Favorite.query.filter_by(user_id=current_user.id).all()
+    favorite_ids = [f.movie_id for f in favs]
+
+    movies = recommend_for_user(favorite_ids)
+
+    return render_template("recommendations.html",
+                           movies=movies,
+                           image_base=IMAGE_BASE_URL)
+
 
 
 # TMDB - műfajlista lekérése
