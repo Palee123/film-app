@@ -10,8 +10,6 @@
 
 </head>
 <body>
-    
-{% set lang = session.get('lang', 'hu') %}
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
@@ -20,8 +18,9 @@
 
         <div class="d-flex ms-auto">
 
-            <!-- Login / Logout -->
+            <!-- Login / Logout / Favorites / My Ratings -->
             <ul class="navbar-nav me-3">
+
                 {% if current_user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('logout') }}">
@@ -35,17 +34,36 @@
                         </a>
                     </li>
                 {% endif %}
+
+                {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('favorites') }}">
+                            {% if lang == 'hu' %}Kedvencek{% else %}Favorites{% endif %}
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('my_ratings') }}">
+                            {% if lang == 'hu' %}Értékeléseim{% else %}My Ratings{% endif %}
+                        </a>
+                    </li>
+                {% endif %}
+
             </ul>
 
-            <!-- Nyelvválasztó -->
+            <!-- Language selector -->
             <ul class="navbar-nav">
                 <li class="nav-item">
                     <a class="nav-link {% if lang == 'hu' %}active{% endif %}"
-                       href="{{ url_for('set_language', lang='hu') }}">HU</a>
+                       href="{{ url_for('set_language', lang='hu') }}">
+                        HU
+                    </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link {% if lang == 'en' %}active{% endif %}"
-                       href="{{ url_for('set_language', lang='en') }}">EN</a>
+                       href="{{ url_for('set_language', lang='en') }}">
+                        EN
+                    </a>
                 </li>
             </ul>
 
@@ -54,15 +72,7 @@
     </div>
 </nav>
 
-<p style="color:yellow;">LANG DEBUG: {{ lang }}</p>
-
 <div class="container mt-4">
-
-    <!-- DEBUG: jelenlegi nyelv kijelzése, ha szeretnéd látni -->
-    <small class="text-muted">
-        Aktuális nyelv: {{ lang }}
-    </small>
-    <hr>
 
     {% with messages = get_flashed_messages(with_categories=True) %}
         {% if messages %}

@@ -252,6 +252,66 @@ def movie_details(movie_id):
                            user_rating=user_rating,
                            is_favorite=is_favorite)
 
+@app.route("/favorites")
+@login_required
+def favorites():
+    favorites = Favorite.query.filter_by(user_id=current_user.id).all()
+
+    movies = []
+    lang_code = get_tmdb_language()
+
+    for fav in favorites:
+        url = f"{TMDB_BASE_URL}/movie/{fav.movie_id}"
+        params = {"api_key": TMDB_API_KEY, "language": lang_code}
+        movie = requests.get(url, params=params).json()
+        if movie and "id" in movie:
+            movies.append(movie)
+            
+    print("MOVIES DEBUG:", movies)
+
+    return render_template("favorites.html",
+                           movies=movies,
+                           image_base=IMAGE_BASE_URL)
+
+@app.route("/remove_favorite/<int:movie_id>")
+@login_required
+def remove_favorite(movie_id):
+    fav = Favorite.query.filter_by(user_id=current_user.id, movie_id=movie_id).first()
+    if fav:
+        db.session.delete(fav)
+        db.session.commit()
+        flash("Kedvencekből eltávolítva!", "info")
+    else:
+        flash("Ez a film nincs a kedvencek között!", "warning")
+
+
+    return redirect(request.referrer or url_for("favorites"))
+
+
+@app.route("/my_ratings")
+@login_required
+def my_ratings():
+    ratings = Rating.query.filter_by(user_id=current_user.id).all()
+
+    movie_data = []
+    lang_code = get_tmdb_language()
+
+    for r in ratings:
+        url = f"{TMDB_BASE_URL}/movie/{r.movie_id}"
+        params = {"api_key": TMDB_API_KEY, "language": lang_code}
+        movie = requests.get(url, params=params).json()
+
+        if movie and "id" in movie:
+            movie_data.append({
+                "movie": movie,
+                "rating": r.rating
+            })
+
+    return render_template("my_ratings.html",
+                           movie_data=movie_data,
+                           image_base=IMAGE_BASE_URL)
+
+
 #értékelés mentése
 
 @app.route("/rate/<int:movie_id>", methods=["POST"])
