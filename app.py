@@ -53,16 +53,50 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+class Rating(db.Model):
+    __tablename__ = "ratings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    movie_id = db.Column(db.Integer, nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+
+    # Egyszer egy user csak egyszer értékelhet egy filmet
+    __table_args__ = (db.UniqueConstraint("user_id", "movie_id"),)
+
+class Favorite(db.Model):
+    __tablename__ = "favorites"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    movie_id = db.Column(db.Integer, nullable=False)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "movie_id"),)
+
+
 # Flask-Login user loader
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# TESZT ÚTVONAL (Később törölhető)
+def get_popular_movies():
+    url = f"{TMDB_BASE_URL}/movie/popular"
+    params = {
+        "api_key": TMDB_API_KEY,
+        "language": "hu-HU",
+        "page": 1
+    }
+    response = requests.get(url, params=params).json()
+    movies = response.get("results", [])
+    print("POPULAR MOVIES COUNT:", len(movies))  # debug
+    return movies
+
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    movies = get_popular_movies()
+    return render_template("index.html", movies=movies,image_base=IMAGE_BASE_URL)
+
 
 # REGISZTRÁCIÓ
 @app.route("/register", methods=["GET", "POST"])
@@ -157,6 +191,81 @@ def search_results():
     return render_template("search_results.html",
                            results=results,
                            image_base=IMAGE_BASE_URL)
+
+#film részletek
+
+@app.route("/movie/<int:movie_id>")
+def movie_details(movie_id):
+    # Film adatok lekérése TMDb API-ból
+    url = f"{TMDB_BASE_URL}/movie/{movie_id}"
+    params = {"api_key": TMDB_API_KEY, "language": "hu-HU"}
+    movie = requests.get(url, params=params).json()
+
+    # Kép elérési út
+    poster = IMAGE_BASE_URL + movie["poster_path"] if movie.get("poster_path") else None
+
+    # Átlag értékelés saját DB-ből
+    ratings = Rating.query.filter_by(movie_id=movie_id).all()
+    avg_rating = None
+    if ratings:
+        avg_rating = sum(r.rating for r in ratings) / len(ratings)
+
+    # Saját értékelés (ha van)
+    user_rating = None
+    if current_user.is_authenticated:
+        r = Rating.query.filter_by(user_id=current_user.id, movie_id=movie_id).first()
+        if r:
+            user_rating = r.rating
+
+    # Kedvenc-e?
+    is_favorite = False
+    if current_user.is_authenticated:
+        fav = Favorite.query.filter_by(user_id=current_user.id, movie_id=movie_id).first()
+        if fav:
+            is_favorite = True
+
+    return render_template("movie_details.html",
+                           movie=movie,
+                           poster=poster,
+                           avg_rating=avg_rating,
+                           user_rating=user_rating,
+                           is_favorite=is_favorite)
+
+#értékelés mentése
+
+@app.route("/rate/<int:movie_id>", methods=["POST"])
+@login_required
+def rate_movie(movie_id):
+    rating_value = int(request.form.get("rating"))
+
+    existing = Rating.query.filter_by(user_id=current_user.id, movie_id=movie_id).first()
+
+    if existing:
+        existing.rating = rating_value
+    else:
+        new_rating = Rating(user_id=current_user.id, movie_id=movie_id, rating=rating_value)
+        db.session.add(new_rating)
+
+    db.session.commit()
+    flash("Sikeresen értékelted a filmet!", "success")
+    return redirect(url_for("movie_details", movie_id=movie_id))
+
+#kedvenc hozzáadása
+
+@app.route("/favorite/<int:movie_id>")
+@login_required
+def add_favorite(movie_id):
+    fav = Favorite.query.filter_by(user_id=current_user.id, movie_id=movie_id).first()
+
+    if not fav:
+        new_fav = Favorite(user_id=current_user.id, movie_id=movie_id)
+        db.session.add(new_fav)
+        db.session.commit()
+        flash("Hozzáadva a kedvencekhez!", "success")
+    else:
+        flash("Ez a film már a kedvencek között van!", "info")
+
+    return redirect(url_for("movie_details", movie_id=movie_id))
 
 
 # TMDB - műfajlista lekérése
