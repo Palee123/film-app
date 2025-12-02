@@ -1,50 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2 class="mb-4">
-    {% if lang == 'hu' %}
-        Ajánlott filmek
-    {% else %}
-        Recommended Movies
-    {% endif %}
-</h2>
+<h3>{{ 'Ajánlott filmek' if lang=='hu' else 'Recommended movies' }}</h3>
 
-{% if movies %}
-<div class="row row-cols-1 row-cols-md-4 g-4">
-
+<div class="row">
     {% for movie in movies %}
-    <div class="col">
-        <div class="card h-100">
+        <div class="col-md-3 mb-4">
+            <div class="card">
+                {% if movie.poster_path %}
+                    <img src="{{ image_base }}{{ movie.poster_path }}" class="card-img-top">
+                {% endif %}
+                <div class="card-body">
+                    <h5>{{ movie.title }}</h5>
 
-            {% if movie.poster_path %}
-                <img src="{{ image_base }}{{ movie.poster_path }}" class="card-img-top">
-            {% else %}
-                <img src="https://via.placeholder.com/500x750?text={% if lang=='hu' %}Nincs+kép{% else %}No+image{% endif %}" class="card-img-top">
-            {% endif %}
-
-            <div class="card-body">
-                <h5 class="card-title">{{ movie.title }}</h5>
-
-                <a href="{{ url_for('movie_details', movie_id=movie.id) }}"
-                   class="btn btn-primary">
-                    {% if lang == 'hu' %}Részletek{% else %}Details{% endif %}
-                </a>
+                    <a href="{{ url_for('main.movie_details', movie_id=movie.id) }}"
+                       class="btn btn-primary">
+                       {{ 'Részletek' if lang=='hu' else 'Details' }}
+                    </a>
+                </div>
             </div>
-
         </div>
-    </div>
     {% endfor %}
-
 </div>
-
-{% else %}
-<p>
-    {% if lang == 'hu' %}
-        Még nincs elegendő adat az ajánláshoz.
-    {% else %}
-        No recommendations available yet.
-    {% endif %}
-</p>
-{% endif %}
 
 {% endblock %}
