@@ -10,11 +10,10 @@ import os
 import requests
 
 # APP ALAP BEÁLLÍTÁS
-
 app = Flask(__name__, instance_relative_config=True)
 
 # Betöltjük a secret key-t
-secret_path = os.path.join(app.instance_path, "secret_key.txt")
+secret_path = os.path.join(app.root_path, "secret_key.txt")
 with open(secret_path, "r") as f:
     app.config["SECRET_KEY"] = f.read().strip()
 
@@ -109,8 +108,46 @@ def get_popular_movies():
 
 @app.route("/")
 def index():
-    movies = get_popular_movies()
-    return render_template("index.html", movies=movies,image_base=IMAGE_BASE_URL)
+    lang_code = get_tmdb_language()
+
+    query = request.args.get("query", "").strip()
+
+    if query:
+        # Ha keresés van → keresési találatok
+        url = f"{TMDB_BASE_URL}/search/movie"
+        params = {
+            "api_key": TMDB_API_KEY,
+            "language": lang_code,
+            "query": query
+        }
+        data = requests.get(url, params=params).json()
+        movies = data.get("results", [])
+
+        return render_template(
+            "index.html",
+            movies=movies,
+            searching=True,
+            search_query=query,
+            image_base=IMAGE_BASE_URL
+        )
+
+    # Ha NINCS keresés → népszerű filmek
+    url = f"{TMDB_BASE_URL}/movie/popular"
+    params = {
+        "api_key": TMDB_API_KEY,
+        "language": lang_code
+    }
+    data = requests.get(url, params=params).json()
+    movies = data.get("results", [])
+
+    return render_template(
+        "index.html",
+        movies=movies,
+        searching=False,
+        search_query=None,
+        image_base=IMAGE_BASE_URL
+    )
+
 
 @app.route("/set_language/<lang>")
 def set_language(lang):
@@ -118,7 +155,6 @@ def set_language(lang):
         lang = "hu"
     session["lang"] = lang
     return redirect(request.referrer or url_for("index"))
-
 
 # REGISZTRÁCIÓ
 @app.route("/register", methods=["GET", "POST"])
@@ -332,6 +368,29 @@ def rate_movie(movie_id):
     flash("Sikeresen értékelted a filmet!", "success")
     return redirect(url_for("movie_details", movie_id=movie_id))
 
+#értékelések törtlése
+
+@app.route("/remove_rating/<int:movie_id>")
+@login_required
+def remove_rating(movie_id):
+
+    rating = Rating.query.filter_by(
+        user_id=current_user.id,
+        movie_id=movie_id
+    ).first()
+
+    if rating:
+        db.session.delete(rating)
+        db.session.commit()
+        flash("Értékelés eltávolítva!" if session.get("lang","hu")=="hu"
+              else "Rating removed!", "success")
+    else:
+        flash("Nem található értékelés." if session.get("lang","hu")=="hu"
+              else "Rating not found.", "warning")
+
+    return redirect(url_for("my_ratings"))
+
+
 #kedvenc hozzáadása
 
 @app.route("/favorite/<int:movie_id>")
@@ -352,14 +411,36 @@ def add_favorite(movie_id):
 @app.route("/recommendations")
 @login_required
 def recommendations():
-    favs = Favorite.query.filter_by(user_id=current_user.id).all()
-    favorite_ids = [f.movie_id for f in favs]
 
-    movies = recommend_for_user(favorite_ids)
+    # Ha még nincs a session-ben elmentve → ajánlórendszer fut
+    if "recommended_ids" not in session:
+        favs = Favorite.query.filter_by(user_id=current_user.id).all()
+        favorite_ids = [f.movie_id for f in favs]
 
-    return render_template("recommendations.html",
-                           movies=movies,
-                           image_base=IMAGE_BASE_URL)
+        movies = recommend_for_user(favorite_ids)
+
+        # Ha van ajánlás → csak a film ID-ket mentjük el
+        session["recommended_ids"] = [m["id"] for m in movies]
+
+    # Most már minden esetben a session alapján kérjük le
+    recommended_ids = session["recommended_ids"]
+
+    movies = []
+    for mid in recommended_ids:
+        url = f"{TMDB_BASE_URL}/movie/{mid}"
+        params = {
+            "api_key": TMDB_API_KEY,
+            "language": get_tmdb_language()
+        }
+        movies.append(requests.get(url, params=params).json())
+
+    return render_template(
+        "recommendations.html",
+        movies=movies,
+        image_base=IMAGE_BASE_URL
+    )
+
+
 
 
 

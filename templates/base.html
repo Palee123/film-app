@@ -53,7 +53,29 @@
                             {% if lang == 'hu' %}Értékeléseim{% else %}My Ratings{% endif %}
                         </a>
                     </li>
+                    <!-- Részletes keresés link -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('search') }}">
+                            {% if lang == 'hu' %}Részletes keresés{% else %}Advanced Search{% endif %}
+                        </a>
+                    </li>
+                    
+
                 {% endif %}
+                <!-- NAVBAR SEARCH BAR -->
+                <form class="d-flex ms-3" action="{{ url_for('index') }}" method="get">
+                    <input class="form-control me-2"
+                        type="search"
+                        name="query"
+                        placeholder="{% if lang=='hu' %}Keresés...{% else %}Search...{% endif %}"
+                        aria-label="Search"
+                        style="width: 180px;">
+
+                    <button class="btn btn-outline-light" type="submit">
+                        🔍
+                    </button>
+                </form>
+
             </ul>
 
             <!-- Language selector -->
